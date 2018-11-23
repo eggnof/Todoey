@@ -57,7 +57,7 @@ class TodoListViewController: UITableViewController {
         }
         
         //Prevent row from staying highlighted after a click, instead show highlight then animate it away
-        tableView.deselectRow(at: indexPath, animated: true)
+        tableView.deselectRow(at: indexPath, animated: true) 
     }
 
 }
