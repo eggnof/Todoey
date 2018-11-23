@@ -18,6 +18,7 @@ class TodoListViewController: UITableViewController {
     }
 
     //MARK: Table View Datasource Methods
+    //***************************************
     
     //Set number of selections (columns) in table view
     override func numberOfSections(in tableView: UITableView) -> Int {
@@ -41,6 +42,7 @@ class TodoListViewController: UITableViewController {
     }
     
     //MARK: TableView Delegate Methods
+    //***************************************
     
     //When a row is selected
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -60,5 +62,48 @@ class TodoListViewController: UITableViewController {
         tableView.deselectRow(at: indexPath, animated: true) 
     }
 
+    //MARK: Add New Items
+    //***************************************
+    
+    //Add navBar button is pressed
+    @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
+        
+        //Local vars
+        var textField = UITextField() //Setup a new UITextField to hold usered entered text
+        
+        //Create a UI Alert Container
+        let alert = UIAlertController(title: "Add New Todoey Items", message: "", preferredStyle: .alert)
+        
+        //Create an action for the container, and specify its functionality
+        let action = UIAlertAction(title: "Add Item", style: .default) { (action) in
+         
+            //User pressed alertAction button
+            if textField.text != ""{ //Make sure the textField isn't empty
+                
+                //TODO: blank items can still be created if user enters whitespace only
+                
+                //Add textFields current value to itemArray
+                self.itemArray.append(textField.text!)
+                
+                //Refresh tableView data
+                self.tableView.reloadData()
+            }
+            
+        }
+        
+        //Add a text field to the alert
+        alert.addTextField { (alertTextField) in
+            alertTextField.placeholder = "Create new item." //Text that shows in field before user types anything)
+            textField = alertTextField //Assign alertTextField to textField, this extends its scope to other parts of this method that are outside this closure.
+        }
+        
+        //Add alert to action
+        alert.addAction(action)
+        
+        //Make the alert visible
+        present(alert, animated: true, completion: nil)
+        
+    }
+    
 }
 
