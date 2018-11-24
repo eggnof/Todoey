@@ -10,11 +10,21 @@ import UIKit
 
 class TodoListViewController: UITableViewController {
     
+    var defaults = UserDefaults.standard //Setup reference to userDefault database to store persistant data
+    
     var itemArray = ["Buy Milk","Buy Peanut Butter","Fix Sink"]
 
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
+        
+        //Check if user has saved itemArray data to userDefaults, if yet load data back into itemArray
+        if let items = defaults.array(forKey: "TodoListArray") as? [String] {
+            //Defaults were found, assign them to itemArray
+            itemArray = items
+            
+        }
+        
     }
 
     //MARK: Table View Datasource Methods
@@ -84,6 +94,9 @@ class TodoListViewController: UITableViewController {
                 
                 //Add textFields current value to itemArray
                 self.itemArray.append(textField.text!)
+                
+                //Save textFields array into userDefaults for persistant storage
+                self.defaults.set(self.itemArray, forKey: "TodoListArray")
                 
                 //Refresh tableView data
                 self.tableView.reloadData()
