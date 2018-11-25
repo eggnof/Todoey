@@ -12,17 +12,25 @@ class TodoListViewController: UITableViewController {
     
     var defaults = UserDefaults.standard //Setup reference to userDefault database to store persistant data
     
-    var itemArray = ["Buy Milk","Buy Peanut Butter","Fix Sink"]
+    var itemArray = [Item]() //Create array of item Objects
 
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
+        
+        let newItem = Item() //Create new item from Item class
+        newItem.title = "Buy Milk" //Assign its title
+        itemArray.append(newItem) //Add it to array
+
+        let newItem2 = Item() //Create new item from Item class
+        newItem2.title = "Buy Other Stuff" //Assign its title
+        itemArray.append(newItem2) //Add it to array
+        
         //Check if user has saved itemArray data to userDefaults, if yet load data back into itemArray
-        if let items = defaults.array(forKey: "TodoListArray") as? [String] {
+        if let items = defaults.array(forKey: "TodoListArray") as? [Item] {
             //Defaults were found, assign them to itemArray
             itemArray = items
-            
         }
         
     }
@@ -46,7 +54,15 @@ class TodoListViewController: UITableViewController {
         //Tell table to create as and reuseable cells for each cell, using "ToDoItemCell" as the template
         let cell =  tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell", for: indexPath)
         
-        cell.textLabel?.text = itemArray[indexPath.row] //Set eacb cell's label to corrisponding label in itemArray
+        //Reference to current item's index
+        let item = itemArray[indexPath.row]
+        
+        print(item.title)//DEBUG
+        
+        cell.textLabel?.text = item.title //Set each cell's label to corrisponding title in itemArray
+        
+        //Check if this cell should be checked as done and update its accessoryType accordingly
+        cell.accessoryType = item.done ? .checkmark : .none //Ternary statement
         
         return cell
     }
@@ -58,15 +74,11 @@ class TodoListViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
 //        print("Selected: \(itemArray[indexPath.row])")
         
-        //Check if cell has a check mark
-        if(tableView.cellForRow(at: indexPath)?.accessoryType == .checkmark)
-        {
-            //If yes, remove checkmark from selected row
-            tableView.cellForRow(at: indexPath)?.accessoryType = .none
-        } else {
-            //If no, add a checkmark on selected row
-            tableView.cellForRow(at: indexPath)?.accessoryType = .checkmark
-        }
+        //Check current done property and set it to its inverse
+        itemArray[indexPath.row].done = !itemArray[indexPath.row].done
+
+        //Reload tableView to refresh cell's accessoryType
+        tableView.reloadData()
         
         //Prevent row from staying highlighted after a click, instead show highlight then animate it away
         tableView.deselectRow(at: indexPath, animated: true) 
@@ -92,8 +104,10 @@ class TodoListViewController: UITableViewController {
                 
                 //TODO: blank items can still be created if user enters whitespace only
                 
-                //Add textFields current value to itemArray
-                self.itemArray.append(textField.text!)
+                //Create new Item object using textFields current value and append it to itemArray
+                let newItem = Item() //Create new Object
+                newItem.title = textField.text! //Assign it's title
+                self.itemArray.append(newItem) //Add it to array
                 
                 //Save textFields array into userDefaults for persistant storage
                 self.defaults.set(self.itemArray, forKey: "TodoListArray")
