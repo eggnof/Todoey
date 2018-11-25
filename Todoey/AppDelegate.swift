@@ -17,9 +17,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
         
-        //DEBUG: Print file path for last saved item in documentDirectory
-        print( NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).last! as String )
-        
         return true
     }
     

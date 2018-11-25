@@ -10,28 +10,18 @@ import UIKit
 
 class TodoListViewController: UITableViewController {
     
-    var defaults = UserDefaults.standard //Setup reference to userDefault database to store persistant data
-    
     var itemArray = [Item]() //Create array of item Objects
-
+    
+    //Create a filepath to this app's document directory (for saving data)
+    //first? is like using [0] and appendingPathComponent concatonates its arguments onto the end of the path – This part will be the name of the actual file that is created.
+    let dataFilePath = FileManager.default.urls(for: .documentDirectory , in: .userDomainMask ).first?.appendingPathComponent("Items.plist")
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
-        
-        let newItem = Item() //Create new item from Item class
-        newItem.title = "Buy Milk" //Assign its title
-        itemArray.append(newItem) //Add it to array
-
-        let newItem2 = Item() //Create new item from Item class
-        newItem2.title = "Buy Other Stuff" //Assign its title
-        itemArray.append(newItem2) //Add it to array
-        
-        //Check if user has saved itemArray data to userDefaults, if yet load data back into itemArray
-        if let items = defaults.array(forKey: "TodoListArray") as? [Item] {
-            //Defaults were found, assign them to itemArray
-            itemArray = items
-        }
+        //Load any persisted data from app documents
+        loadItems()
         
     }
 
@@ -57,8 +47,6 @@ class TodoListViewController: UITableViewController {
         //Reference to current item's index
         let item = itemArray[indexPath.row]
         
-        print(item.title)//DEBUG
-        
         cell.textLabel?.text = item.title //Set each cell's label to corrisponding title in itemArray
         
         //Check if this cell should be checked as done and update its accessoryType accordingly
@@ -77,8 +65,8 @@ class TodoListViewController: UITableViewController {
         //Check current done property and set it to its inverse
         itemArray[indexPath.row].done = !itemArray[indexPath.row].done
 
-        //Reload tableView to refresh cell's accessoryType
-        tableView.reloadData()
+        //Save items to the apps documents plist, so data persists between sessions
+        saveData()
         
         //Prevent row from staying highlighted after a click, instead show highlight then animate it away
         tableView.deselectRow(at: indexPath, animated: true) 
@@ -102,15 +90,15 @@ class TodoListViewController: UITableViewController {
             //User pressed alertAction button
             if textField.text != ""{ //Make sure the textField isn't empty
                 
-                //TODO: blank items can still be created if user enters whitespace only
+                //TODO: BUG: blank items can still be created if user enters whitespace only
                 
                 //Create new Item object using textFields current value and append it to itemArray
                 let newItem = Item() //Create new Object
                 newItem.title = textField.text! //Assign it's title
                 self.itemArray.append(newItem) //Add it to array
                 
-                //Save textFields array into userDefaults for persistant storage
-                self.defaults.set(self.itemArray, forKey: "TodoListArray")
+               //Save items to the apps documents plist, so data persists between sessions
+                self.saveData()
                 
                 //Refresh tableView data
                 self.tableView.reloadData()
@@ -130,6 +118,40 @@ class TodoListViewController: UITableViewController {
         //Make the alert visible
         present(alert, animated: true, completion: nil)
         
+    }
+    
+    //Method for encoding and saving data to plist file
+    func saveData (){
+        
+        //Save data from itemArray so that it persists between sessions.
+        //Create a new plist encoder to use for encoding files. The encoder converts any custom dataTypes into standard dataTypes so they can be saved to a plist (Only standard dataTypes in plists!\!)
+        let encoder = PropertyListEncoder()
+        do {
+            //Try to encode itemArray into a plist file so the encoder can write it to plist
+            let data = try encoder.encode(itemArray)
+            //Try to write the encoded data to the filepath
+            try data.write(to: dataFilePath!)
+        } catch {
+            print("Error encoding item array: \(error)")
+        }
+        
+        //Refresh the data in our tableView
+        tableView.reloadData()
+    }
+    
+    func loadItems(){
+        //Try to grab a reference to the data filepath
+        if let data = try? Data(contentsOf: dataFilePath!) {
+            //Create a decoder to convert data from plist back to objects original formatting
+            let decoder = PropertyListDecoder()
+            do{
+            //Decode data and update global variable itemArray with its contents.
+            //Must be passed the destination dataType, and the location to get the data.
+            itemArray = try decoder.decode([Item].self, from: data) //.self used to refer to the type of object, not an instance of object
+            } catch {
+                print("Error decoding data: \(error)")
+            }
+        }
     }
     
 }
