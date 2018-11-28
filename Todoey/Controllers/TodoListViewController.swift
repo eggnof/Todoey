@@ -7,20 +7,23 @@
 //
 
 import UIKit
+import CoreData
 
 class TodoListViewController: UITableViewController {
     
     var itemArray = [Item]() //Create array of item Objects
     
-    //Create a filepath to this app's document directory (for saving data)
-    //first? is like using [0] and appendingPathComponent concatonates its arguments onto the end of the path – This part will be the name of the actual file that is created.
-    let dataFilePath = FileManager.default.urls(for: .documentDirectory , in: .userDomainMask ).first?.appendingPathComponent("Items.plist")
+    //Go into app delegate, grab reference to the persistant containers' context
+    //This will act as a staging area for data that we want to save, and give us a way to save it
+    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
-        //Load any persisted data from app documents
+        print( FileManager.default.urls(for: .documentDirectory , in: .userDomainMask ) )//DEBUG
+        
+        //Load any persisted data from app documents, passing the request item as the container for results
         loadItems()
         
     }
@@ -62,6 +65,9 @@ class TodoListViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
 //        print("Selected: \(itemArray[indexPath.row])")
         
+//        context.delete(itemArray[indexPath.row]) //Delete the item from itemArray at the current index from the context. Still requires a saveContext to be called later, context is only temporary!
+//        itemArray.remove(at: indexPath.row) //Remove the item at the current index from itemArray
+        
         //Check current done property and set it to its inverse
         itemArray[indexPath.row].done = !itemArray[indexPath.row].done
 
@@ -93,8 +99,9 @@ class TodoListViewController: UITableViewController {
                 //TODO: BUG: blank items can still be created if user enters whitespace only
                 
                 //Create new Item object using textFields current value and append it to itemArray
-                let newItem = Item() //Create new Object
+                let newItem = Item(context: self.context) //Create a new Item from dataModel and assign its contenxt
                 newItem.title = textField.text! //Assign it's title
+                newItem.done = false //Assign its done status
                 self.itemArray.append(newItem) //Add it to array
                 
                //Save items to the apps documents plist, so data persists between sessions
@@ -121,38 +128,86 @@ class TodoListViewController: UITableViewController {
     }
     
     //Method for encoding and saving data to plist file
+    //Saves the current state of the persistant container's context
     func saveData (){
         
         //Save data from itemArray so that it persists between sessions.
-        //Create a new plist encoder to use for encoding files. The encoder converts any custom dataTypes into standard dataTypes so they can be saved to a plist (Only standard dataTypes in plists!\!)
-        let encoder = PropertyListEncoder()
         do {
-            //Try to encode itemArray into a plist file so the encoder can write it to plist
-            let data = try encoder.encode(itemArray)
-            //Try to write the encoded data to the filepath
-            try data.write(to: dataFilePath!)
+            //Try to save the data that is currently in the context
+            try context.save()
         } catch {
-            print("Error encoding item array: \(error)")
+            print("Error saving context: \(error)")
         }
         
         //Refresh the data in our tableView
         tableView.reloadData()
     }
     
-    func loadItems(){
-        //Try to grab a reference to the data filepath
-        if let data = try? Data(contentsOf: dataFilePath!) {
-            //Create a decoder to convert data from plist back to objects original formatting
-            let decoder = PropertyListDecoder()
-            do{
-            //Decode data and update global variable itemArray with its contents.
-            //Must be passed the destination dataType, and the location to get the data.
-            itemArray = try decoder.decode([Item].self, from: data) //.self used to refer to the type of object, not an instance of object
-            } catch {
-                print("Error decoding data: \(error)")
+    /*******************************************************************************************************************
+     * METHOD TO LOAD ITEMS FROM DATA MODEL INTO ITEMARRAY AND UPDATE UI
+     * ————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+     * Must be given the dataType of the class of item being fetched. In this case, its the data type of our Model
+     *******************************************************************************************************************/
+    func loadItems(with request : NSFetchRequest<Item> = Item.fetchRequest() ){ //Using = in the argument declaration gives it a default value if one isn't passed when calling
+        
+        //Try to pull the request into the context
+        do {
+            //Data was pulled assign it to our global call var itemArray
+            itemArray = try context.fetch(request)
+        } catch {
+            print("Error fetching data from context: \(error)")
+        }
+        
+        //Update the UI by Refreshing the data in our tableView
+        tableView.reloadData()
+    }
+    
+
+
+    
+}
+
+//MARK: Search bar functionality
+//Extend base class to add searchBar functionality
+extension TodoListViewController : UISearchBarDelegate {
+    
+    /********************************************************
+     * WHAT SHOULD HAPPEN WHEN THE SEARCH BUTTON IS CLICKED
+     ********************************************************/
+    
+    //What should happen when the search button is clicked
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        
+        //Create a request object to hold retrieved items
+        let request : NSFetchRequest<Item> = Item.fetchRequest() //Must be given the dataType of the class of item being fetched. Here Item is a placeholder for your model's dataType
+        
+        //create a a query looking for titles that contain the text currently in the searchBar (made case and diacritic insensitive with [cd]!)
+        request.predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+        
+        //Create a sort descriptor to sort the query (sorts alphabetically by title, in ascending order)
+        request.sortDescriptors = [ NSSortDescriptor(key: "title", ascending: true) ] //Expects an array of descriptors
+        
+        //Try to pull the request into the context, assign it to our tableView, and update UI (assignment happens inside function)
+        loadItems(with: request)
+    }
+    
+    /********************************************************
+     * textDidChange:
+     * CALLED EVERYTIME THE TEXT INSIDE SEARCH BAR CHANGES
+     * —————————————————————————————————————————————————————
+     * Use this to clear search results when text is removed
+     ********************************************************/
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        //Search bar changed, but is now empty — Text was removed.
+        if searchBar.text?.count == 0 {
+            loadItems() //Reload to default state
+          
+            //Tell the DispatchQueue to make run this call on the main thread - Don't wait for other tasks to finish first
+            DispatchQueue.main.async {             //DispatchQueue is responsibile for assigning tasks to different threads
+                //Tell searchBar it is no longer the focus – Dismisses keyboard and texdt cursor
+                searchBar.resignFirstResponder()
             }
         }
     }
     
 }
-
