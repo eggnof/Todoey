@@ -8,6 +8,7 @@
 
 import UIKit
 import CoreData
+import RealmSwift
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -15,8 +16,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
     // Override point for customization after application launch.
     
+    //Runs as soon as application opens
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+  
         
+        //Get the path to your Realm database
+        print( Realm.Configuration.defaultConfiguration.fileURL )
+        
+        //Create example piece of data
+        let data = RealmData() //Create new object based on our data model class
+        data.name = "Bryce"
+        data.age = 33
+        
+        //Try to create new Realm database
+        do{
+            let realm = try Realm()// New RealmData base object
+            try realm.write { //Try to write to database
+                realm.add(data) //What are we writing? Our custom data object.
+            }
+        } catch {
+            print("Error loading data from Realm: \(error)")
+        }
         
         return true
     }    
