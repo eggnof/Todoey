@@ -7,19 +7,23 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 class CategoryViewController: UITableViewController {
     
-    var categoryArray = [Category]()
+    //Initialize a new Realm Object
+    let realm = try! Realm()
     
-    //Get Reference to this application's context
-    let context = ( UIApplication.shared.delegate as! AppDelegate ).persistentContainer.viewContext
+    //A container of type Results that can hold Category objects
+    //Results is an auto updating container from Realm. Any time you perform a Realm quiery it returns it as a results object.
+    //So to be able to quiery our data and contain it, categories must be of type Results, and not Array or List.
+    var categories : Results<Category>?
+    
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        //Load data from persistant container from previous app uses
+        //Load data from Realm for app use
         loadItems()
     }
     
@@ -39,14 +43,14 @@ class CategoryViewController: UITableViewController {
             //Make sure textField's text isn't empty
             if textField.text != ""{
                 
-                let newItem = Category(context: self.context) //Create a new Category object from our data model, and assign it to this this the current context
-                newItem.name = textField.text! //Force unwrap (textField's text is an optional) and we already checked to make sure it isn't ""
+                let newCategory = Category() //Create a new Category object from our data model, and assign it to this this the current context
+                newCategory.name = textField.text! //Force unwrap (textField's text is an optional) and we already checked to make sure it isn't ""
                 
                 //Add our newly created Category object to our categoryArray
-                self.categoryArray.append(newItem)
+//                self.categories.append(newCategory) //Now using Realm, no need to append, Realm's Results container auto updates when new Category items are added.
                 
                 //Save items to the coreData storage, so data persists between sessions
-                self.saveData()
+                self.save(category: newCategory)
                 
                 //Reload the tableView to update it's content
                 self.tableView.reloadData()
@@ -77,7 +81,7 @@ class CategoryViewController: UITableViewController {
     
     //How many rows are in this section?
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return categoryArray.count
+        return categories?.count ?? 1 //Nil Coalescing Operator. Return categories.count if its not nil, else return 1
     }
     
     //Set what the contents of each row should be. This gets called for each row in table (Established in numberOfRowsInSection method)
@@ -87,9 +91,9 @@ class CategoryViewController: UITableViewController {
         let cell =  tableView.dequeueReusableCell(withIdentifier: "categoryCell", for: indexPath)
         
         //Reference to current item's index
-        let item = categoryArray[indexPath.row]
+        let item = categories?[indexPath.row]
         
-        cell.textLabel?.text = item.name //Set each cell's label to corrisponding title in categoryArray
+        cell.textLabel?.text = item?.name ?? "No categories added yet!" //Set each cell's label to corrisponding title in categoryArray. Using Nil Coalescing Operator to provide an if clause incase categories is nil.
         
         return cell
         
@@ -115,7 +119,7 @@ class CategoryViewController: UITableViewController {
         if let indexPath = tableView.indexPathForSelectedRow {
             
             //A valid destination exists, Set selectedCategory inside destination
-            destination.selectedCategory = categoryArray[indexPath.row]
+            destination.selectedCategory = categories?[indexPath.row]
         }
     }
     
@@ -123,14 +127,14 @@ class CategoryViewController: UITableViewController {
     //MARK: - Data Manipulation Methods
     /************************************************************************************/
     
-    //Method for encoding and saving data to plist file
-    //Saves the current state of the persistant container's context
-    func saveData (){
+    //Method for saving data to realm
+    func save(category: Category){
         
-        //Save data from itemArray so that it persists between sessions.
         do {
-            //Try to save the data that is currently in the context
-            try context.save()
+            //Try to save the data to Realm
+            try realm.write {
+                realm.add(category)
+            }
         } catch {
             print("Error saving category: \(error)")
         }
@@ -140,22 +144,48 @@ class CategoryViewController: UITableViewController {
     }
     
     /*******************************************************************************************************************
-     * METHOD TO LOAD ITEMS FROM DATA MODEL INTO ITEMARRAY AND UPDATE UI
-     * ————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-     * Must be given the dataType of the class of item being fetched. In this case, its the data type of our Model
+     * METHOD TO LOAD ITEMS FROM REALM AND UPDATE UI
      *******************************************************************************************************************/
-    func loadItems(with request : NSFetchRequest<Category> = Category.fetchRequest() ){ //Using = in the argument declaration gives it a default value if one isn't passed when calling
+    func loadItems(){
         
-        //Try to pull the request into the context
-        do {
-            //Data was pulled assign it to our global call var itemArray
-            categoryArray = try context.fetch(request)
-        } catch {
-            print("Error fetching data from context: \(error)")
-        }
-        
+        //Load all of this type of object from Realm db
+         categories = realm.objects(Category.self).sorted(byKeyPath: "name", ascending: true)
+
         //Update the UI by Refreshing the data in our tableView
         tableView.reloadData()
     }
     
+}
+
+extension CategoryViewController : UISearchBarDelegate {
+    
+    /********************************************************
+     * WHAT SHOULD HAPPEN WHEN THE SEARCH BUTTON IS CLICKED
+     ********************************************************/
+    
+    //What should happen when the search button is clicked
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+        print("Calling Category Search!") //DEBUG
+        categories = categories?.filter("name CONTAINS[cd] %@", searchBar.text!).sorted(byKeyPath: "name", ascending: true) //Filter todoItems to only contain items who's title contain the string from searchBar. Sort the results alphabetically by title.
+    }
+    
+    /********************************************************
+     * textDidChange:
+     * CALLED EVERYTIME THE TEXT INSIDE SEARCH BAR CHANGES
+     * —————————————————————————————————————————————————————
+     * Use this to clear search results when text is removed
+     ********************************************************/
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        //Search bar changed, but is now empty — Text was removed.
+        if searchBar.text?.count == 0 {
+            loadItems() //Reload to default state
+            
+            //Tell the DispatchQueue to make run this call on the main thread - Don't wait for other tasks to finish first
+            DispatchQueue.main.async {             //DispatchQueue is responsibile for assigning tasks to different threads
+                //Tell searchBar it is no longer the focus – Dismisses keyboard and texdt cursor
+                searchBar.resignFirstResponder()
+            }
+        }
+    }
+
 }
